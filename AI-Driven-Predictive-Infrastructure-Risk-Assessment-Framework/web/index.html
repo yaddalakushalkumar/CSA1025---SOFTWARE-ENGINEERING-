@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InfraRisk-AI | Infrastructure Risk Assessment & Maintenance Optimization</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Dashboard CSS -->
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Top Navigation & System Status Bar -->
+  <header class="top-nav">
+    <div class="brand">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 21h18M5 21V7l7-4 7 4v14M9 10a2 2 0 1 1-4 0M19 10a2 2 0 1 1-4 0M9 16a2 2 0 1 1-4 0M19 16a2 2 0 1 1-4 0" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="logo-title">InfraRisk-AI</h1>
+        <p class="logo-subtitle">Predictive Infrastructure Risk & Societal Impact Optimization</p>
+      </div>
+    </div>
+
+    <!-- Quick System KPI Strip -->
+    <div class="kpi-strip" id="kpiStrip">
+      <div class="kpi-item">
+        <span class="kpi-label">Total Assets</span>
+        <span class="kpi-val" id="kpiTotalAssets">--</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">Avg Network SHI</span>
+        <span class="kpi-val" id="kpiAvgShi">--</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">Avg Failure Prob (1-Yr)</span>
+        <span class="kpi-val highlight-red" id="kpiAvgPf">--</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">Critical Assets</span>
+        <span class="kpi-val highlight-orange" id="kpiCriticalCount">--</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">Served Pop.</span>
+        <span class="kpi-val" id="kpiPopServed">--</span>
+      </div>
+    </div>
+
+    <div class="nav-actions">
+      <a href="/docs" target="_blank" class="btn btn-secondary btn-sm">Swagger API Docs</a>
+      <button class="btn btn-primary btn-sm" onclick="app.refreshAllData()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Application Container -->
+  <main class="app-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <nav class="side-menu">
+        <button class="menu-tab active" data-tab="tab-map">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+          GIS Network & Risk Matrix
+        </button>
+        <button class="menu-tab" data-tab="tab-degradation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          AI Deterioration Curves
+        </button>
+        <button class="menu-tab" data-tab="tab-societal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          Societal Impact & Equity
+        </button>
+        <button class="menu-tab" data-tab="tab-optimizer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          Maintenance Optimizer
+        </button>
+        <button class="menu-tab" data-tab="tab-simulator">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          What-If Stress Testing
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="badge badge-success">Engine Active</span>
+        <p class="footer-note">Multi-Objective Evolutionary Solver + TOPSIS Decision Ranker</p>
+      </div>
+    </aside>
+
+    <!-- Main Workspace Content -->
+    <section class="content-area">
+
+      <!-- TAB 1: GIS NETWORK & ASSET MATRIX -->
+      <div id="tab-map" class="tab-panel active">
+        <div class="panel-header">
+          <div>
+            <h2>Regional Infrastructure Network & Risk Matrix</h2>
+            <p>Live geospatial map displaying 30 critical nodes, topological flow links, and composite risk index.</p>
+          </div>
+          <div class="filter-controls">
+            <select id="districtFilter" onchange="app.filterAssets()">
+              <option value="">All Districts</option>
+              <option value="Downtown Metro Core">Downtown Metro Core</option>
+              <option value="Eastside Residential">Eastside Residential</option>
+              <option value="Riverfront Industrial Belt">Riverfront Industrial Belt</option>
+              <option value="North Transit Corridor">North Transit Corridor</option>
+              <option value="South Harbor Logistics">South Harbor Logistics</option>
+            </select>
+            <select id="typeFilter" onchange="app.filterAssets()">
+              <option value="">All Asset Types</option>
+              <option value="BRIDGE">Bridge</option>
+              <option value="HIGHWAY_CORRIDOR">Highway Corridor</option>
+              <option value="TUNNEL">Tunnel</option>
+              <option value="WATER_PIPELINE">Water Pipeline</option>
+              <option value="ELECTRICAL_SUBSTATION">Electrical Substation</option>
+              <option value="CULVERT_DRAINAGE">Culvert Drainage</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2-col">
+          <!-- GIS Map Card -->
+          <div class="card map-card">
+            <div id="infraMap" class="map-container"></div>
+            <div class="map-legend">
+              <span class="legend-item"><span class="dot dot-critical"></span> Critical (CRI &gt; 45)</span>
+              <span class="legend-item"><span class="dot dot-high"></span> High Risk (25-45)</span>
+              <span class="legend-item"><span class="dot dot-medium"></span> Medium (12-25)</span>
+              <span class="legend-item"><span class="dot dot-low"></span> Routine (&lt; 12)</span>
+            </div>
+          </div>
+
+          <!-- Asset Detail & Sensor Telemetry Card -->
+          <div class="card detail-card" id="assetDetailCard">
+            <div class="empty-state" id="emptyDetailPrompt">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+              <p>Select any node on the map or asset from the table below to inspect real-time telemetry, structural health, and societal risk.</p>
+            </div>
+            <div id="assetDetailContent" style="display:none;">
+              <div class="detail-header">
+                <div>
+                  <span class="badge" id="detailTypeBadge">BRIDGE</span>
+                  <h3 id="detailAssetName">Asset Name</h3>
+                  <span class="text-muted" id="detailAssetId">ID-000</span>
+                </div>
+                <div class="risk-pill" id="detailRiskPill">
+                  <span class="risk-label">CRI</span>
+                  <span class="risk-value" id="detailCriVal">0.0</span>
+                </div>
+              </div>
+
+              <div class="metric-grid-3">
+                <div class="metric-box">
+                  <span class="m-label">Structural Health (SHI)</span>
+                  <span class="m-val" id="detailShiVal">--</span>
+                  <div class="progress-bar-bg"><div class="progress-bar-fill" id="detailShiProgress"></div></div>
+                </div>
+                <div class="metric-box">
+                  <span class="m-label">1-Yr Failure Prob</span>
+                  <span class="m-val" id="detailPfVal">--</span>
+                </div>
+                <div class="metric-box">
+                  <span class="m-label">Societal Impact</span>
+                  <span class="m-val" id="detailSocVal">--</span>
+                </div>
+              </div>
+
+              <!-- Sensor Telemetry Strip -->
+              <h4 class="subhead">Live Sensor Telemetry</h4>
+              <div class="telemetry-grid">
+                <div class="telem-item"><span class="telem-k">Vibration RMS:</span><span class="telem-v" id="telVibration">--</span></div>
+                <div class="telem-item"><span class="telem-k">Strain:</span><span class="telem-v" id="telStrain">--</span></div>
+                <div class="telem-item"><span class="telem-k">Corrosion Rate:</span><span class="telem-v" id="telCorrosion">--</span></div>
+                <div class="telem-item"><span class="telem-k">Acoustic Energy:</span><span class="telem-v" id="telAcoustic">--</span></div>
+                <div class="telem-item full-width"><span class="telem-k">Anomaly Score:</span><span class="telem-v" id="telAnomaly">--</span></div>
+              </div>
+
+              <!-- Societal Attributes -->
+              <h4 class="subhead">Societal & Equity Context</h4>
+              <div class="soc-grid">
+                <div class="telem-item"><span class="telem-k">Hospital Distance:</span><span class="telem-v" id="socHosp">--</span></div>
+                <div class="telem-item"><span class="telem-k">Social Vulnerability (SVI):</span><span class="telem-v" id="socSvi">--</span></div>
+                <div class="telem-item"><span class="telem-k">Daily Traffic (AADT):</span><span class="telem-v" id="socTraffic">--</span></div>
+                <div class="telem-item"><span class="telem-k">Detour Length:</span><span class="telem-v" id="socDetour">--</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comprehensive Asset Risk Table -->
+        <div class="card table-card">
+          <div class="card-title-row">
+            <h3>Infrastructure Asset Inventory & Priority Tiers</h3>
+            <span class="text-muted" id="tableCountBadge">Loading assets...</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="assetTable">
+              <thead>
+                <tr>
+                  <th>Asset ID</th>
+                  <th>Name</th>
+                  <th>District</th>
+                  <th>Type</th>
+                  <th>SHI</th>
+                  <th>Condition</th>
+                  <th>Failure Prob ($P_f$)</th>
+                  <th>Societal Impact</th>
+                  <th>Composite Risk (CRI)</th>
+                  <th>Priority Tier</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="assetTableBody">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: AI DETERIORATION & PREDICTION -->
+      <div id="tab-degradation" class="tab-panel">
+        <div class="panel-header">
+          <div>
+            <h2>AI-Driven Predictive Deterioration & Survival Modeling</h2>
+            <p>Physics-informed Weibull hazard curves coupled with multi-state Markov chain condition forecasting.</p>
+          </div>
+          <div class="filter-controls">
+            <label for="degradationAssetSelect">Select Asset to Project:</label>
+            <select id="degradationAssetSelect" onchange="app.renderDegradationCharts()"></select>
+          </div>
+        </div>
+
+        <div class="grid-2-col">
+          <!-- 10-Year Trajectory Chart -->
+          <div class="card">
+            <h3>10-Year Structural Health Degradation Curve</h3>
+            <p class="card-desc">Simulated 'Do Nothing' deterioration path accounting for traffic load, age, and sensor anomalies.</p>
+            <div class="chart-container">
+              <canvas id="trajectoryChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Markov State Transitions -->
+          <div class="card">
+            <h3>Markov Chain 5-Year Condition State Distribution</h3>
+            <p class="card-desc">Probabilistic progression across Excellent, Good, Fair, Poor, and Critical states over time.</p>
+            <div class="chart-container">
+              <canvas id="markovChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2-col" style="margin-top: 1.5rem;">
+          <div class="card">
+            <h3>Sensor Telemetry Anomaly Correlation</h3>
+            <p class="card-desc">Normalized anomaly indicators across vibration, corrosion rate, and microstrain.</p>
+            <div class="chart-container">
+              <canvas id="telemetryRadarChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Mathematical Deterioration Formulation</h3>
+            <div class="math-explainer">
+              <p><strong>1. Weibull Non-Linear Cumulative Hazard Function:</strong></p>
+              <code>P_f(t) = 1 - exp(- ( (t_eff + horizon) / &eta;_eff )^&beta; + (t_eff / &eta;_eff )^&beta;)</code>
+              <p>where <code>&beta; = 2.20</code> indicates accelerated wear-out fatigue, and <code>&eta;_eff</code> is modulated by traffic volume ($AADT$) and material durability.</p>
+              <p style="margin-top:0.8rem;"><strong>2. Dynamic Telemetry Anomaly Scaling:</strong></p>
+              <code>P_f_adjusted = 1 - (1 - P_f_base) * (1 - &alpha;_telemetry * 0.45)</code>
+              <p>Instantly flags early-stage micro-fractures, abnormal acoustic emissions, and high corrosion before visible collapse occurs.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: SOCIETAL IMPACT & EQUITY ANALYSIS -->
+      <div id="tab-societal" class="tab-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Multi-Dimensional Societal Impact & Equity Evaluation</h2>
+            <p>Quantifying human costs: Emergency hospital access, commuter detour losses, SVI equity, and environmental spillover.</p>
+          </div>
+        </div>
+
+        <div class="grid-2-col">
+          <!-- Scatter Plot: Failure Prob vs Societal Impact -->
+          <div class="card">
+            <h3>Risk Consequence Matrix: Failure Prob ($P_f$) vs. Societal Impact</h3>
+            <p class="card-desc">Upper right quadrant represents high probability + high societal consequence assets (Priority P1).</p>
+            <div class="chart-container">
+              <canvas id="riskMatrixChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Societal Impact Dimensions Breakdown -->
+          <div class="card">
+            <h3>Societal Dimension Weights & Average Scores</h3>
+            <p class="card-desc">Distribution of emergency, economic, SVI equity, and environmental consequences.</p>
+            <div class="chart-container">
+              <canvas id="societalBreakdownChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- TOPSIS Decision Analysis Rankings -->
+        <div class="card table-card" style="margin-top:1.5rem;">
+          <div class="card-title-row">
+            <h3>TOPSIS Multi-Criteria Decision Prioritization</h3>
+            <span class="text-muted">Technique for Order Preference by Similarity to Ideal Solution</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="topsisTable">
+              <thead>
+                <tr>
+                  <th>Priority Rank</th>
+                  <th>Asset ID</th>
+                  <th>Name</th>
+                  <th>District</th>
+                  <th>TOPSIS Closeness ($C_i^*$)</th>
+                  <th>Composite Risk (CRI)</th>
+                  <th>Failure Prob</th>
+                  <th>Societal Consequence</th>
+                  <th>CDC SVI Score</th>
+                </tr>
+              </thead>
+              <tbody id="topsisTableBody">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: MAINTENANCE OPTIMIZATION -->
+      <div id="tab-optimizer" class="tab-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Multi-Objective Maintenance Optimization Engine</h2>
+            <p>Pareto-optimal evolutionary scheduling balancing fiscal budget, labor crew-days, structural reliability, and equity.</p>
+          </div>
+        </div>
+
+        <!-- Optimizer Configuration Control Card -->
+        <div class="card optimizer-controls-card">
+          <div class="controls-grid">
+            <div class="control-group">
+              <label>Annual Capital Budget ($USD): <span id="budgetDisplay" class="control-value">$15,000,000</span></label>
+              <input type="range" id="budgetSlider" min="2000000" max="45000000" step="500000" value="15000000" oninput="app.updateBudgetDisplay(this.value)">
+            </div>
+            <div class="control-group">
+              <label>Available Crew Days: <span id="crewDisplay" class="control-value">1,800 days</span></label>
+              <input type="range" id="crewSlider" min="500" max="4000" step="50" value="1800" oninput="app.updateCrewDisplay(this.value)">
+            </div>
+            <div class="control-group">
+              <label>Emergency Corridor Weight: <span id="wEmergDisplay" class="control-value">35%</span></label>
+              <input type="range" id="wEmergSlider" min="10" max="60" value="35" oninput="app.updateWeightDisplay('wEmergDisplay', this.value)">
+            </div>
+            <div class="control-group">
+              <label>SVI Equity Weight: <span id="wEquityDisplay" class="control-value">25%</span></label>
+              <input type="range" id="wEquitySlider" min="10" max="60" value="25" oninput="app.updateWeightDisplay('wEquityDisplay', this.value)">
+            </div>
+          </div>
+          <div class="controls-action-row">
+            <button class="btn btn-primary btn-lg" id="btnRunOptimizer" onclick="app.executeOptimization()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              Run Multi-Objective Optimization
+            </button>
+            <span class="optimizer-status" id="optimizerStatus">Ready to execute evolutionary algorithm.</span>
+          </div>
+        </div>
+
+        <!-- Optimization Outcomes Summary Metrics -->
+        <div class="kpi-grid-4" id="optKpiGrid">
+          <div class="metric-card">
+            <span class="m-title">Allocated Investment</span>
+            <span class="m-number" id="optAllocatedBudget">--</span>
+            <span class="m-sub" id="optUtilPct">Budget Utilization: --</span>
+          </div>
+          <div class="metric-card">
+            <span class="m-title">Labor Crew-Days Used</span>
+            <span class="m-number" id="optCrewDays">--</span>
+            <span class="m-sub" id="optCrewLimit">Max Allowed: --</span>
+          </div>
+          <div class="metric-card">
+            <span class="m-title">Avg Network SHI Gain</span>
+            <span class="m-number highlight-green" id="optShiGain">--</span>
+            <span class="m-sub" id="optShiComparison">Pre: -- &rarr; Post: --</span>
+          </div>
+          <div class="metric-card">
+            <span class="m-title">Network Risk Reduction</span>
+            <span class="m-number highlight-blue" id="optRiskReduction">--</span>
+            <span class="m-sub" id="optRiskComparison">Pre: -- &rarr; Post: --</span>
+          </div>
+        </div>
+
+        <!-- Optimized Maintenance Action Plan Table -->
+        <div class="card table-card" style="margin-top:1.5rem;">
+          <div class="card-title-row">
+            <h3>Recommended Optimal Maintenance Action Plan</h3>
+            <span class="badge badge-info" id="optTreatedBadge">0 Assets Scheduled</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="scheduleTable">
+              <thead>
+                <tr>
+                  <th>Asset ID</th>
+                  <th>Asset Name</th>
+                  <th>Scheduled Action</th>
+                  <th>Cost ($USD)</th>
+                  <th>Crew Days</th>
+                  <th>Pre &rarr; Post SHI</th>
+                  <th>Pre &rarr; Post $P_f$</th>
+                  <th>Risk Reduction (&Delta;CRI)</th>
+                  <th>Societal Benefit</th>
+                  <th>Benefit-Cost Ratio (BCR)</th>
+                </tr>
+              </thead>
+              <tbody id="scheduleTableBody">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: WHAT-IF SCENARIO STRESS-TESTING -->
+      <div id="tab-simulator" class="tab-panel">
+        <div class="panel-header">
+          <div>
+            <h2>What-If Policy & Climate Shock Simulator</h2>
+            <p>Stress-test infrastructure resilience against extreme flood/freeze weather events, municipal budget cuts, and policy shifts.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="scenario-form-grid">
+            <div class="control-group">
+              <label>Extreme Weather Event Multiplier (Flood / Freeze Shock):</label>
+              <div class="slider-with-tag">
+                <input type="range" id="weatherSlider" min="1.0" max="2.5" step="0.1" value="1.0" oninput="document.getElementById('weatherTag').innerText = this.value + 'x (Baseline)'">
+                <span class="tag" id="weatherTag">1.0x (Baseline)</span>
+              </div>
+            </div>
+            <div class="control-group">
+              <label>Equity Priority Multiplier (SVI Weight Boost):</label>
+              <div class="slider-with-tag">
+                <input type="range" id="equityBoostSlider" min="1.0" max="3.0" step="0.2" value="1.0" oninput="document.getElementById('equityBoostTag').innerText = this.value + 'x'">
+                <span class="tag" id="equityBoostTag">1.0x</span>
+              </div>
+            </div>
+            <div class="control-group">
+              <label>Emergency Hospital Transit Protection Boost:</label>
+              <div class="slider-with-tag">
+                <input type="range" id="emergBoostSlider" min="1.0" max="2.5" step="0.2" value="1.0" oninput="document.getElementById('emergBoostTag').innerText = this.value + 'x'">
+                <span class="tag" id="emergBoostTag">1.0x</span>
+              </div>
+            </div>
+            <div class="control-group">
+              <label>Municipal Capital Budget ($USD):</label>
+              <div class="slider-with-tag">
+                <input type="range" id="simBudgetSlider" min="5000000" max="40000000" step="1000000" value="15000000" oninput="document.getElementById('simBudgetTag').innerText = '$' + (this.value/1e6).toFixed(1) + 'M'">
+                <span class="tag" id="simBudgetTag">$15.0M</span>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:1.5rem;">
+            <button class="btn btn-primary" onclick="app.executeScenarioSimulation()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              Run Stress-Test Simulation
+            </button>
+          </div>
+        </div>
+
+        <div class="grid-2-col" style="margin-top:1.5rem;">
+          <div class="card">
+            <h3>District Equity Investment Allocation</h3>
+            <p class="card-desc">Comparison of capital allocated per district against average district Social Vulnerability Index (SVI).</p>
+            <div class="chart-container">
+              <canvas id="districtEquityChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Pre- vs. Post-Intervention Network Risk Distribution</h3>
+            <p class="card-desc">Risk alleviation across the 5 municipal zones under the simulated scenario.</p>
+            <div class="chart-container">
+              <canvas id="simRiskComparisonChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- External JavaScript Libraries: Leaflet & Chart.js -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Application Client JS -->
+  <script src="/static/app.js"></script>
+</body>
+</html>
